@@ -7,7 +7,7 @@ React 프론트엔드와 연동하여, 스마트 지팡이 기능을 지원하�
 
 ## 📌 개발 환경
 - **Java**: 21
-- **Spring Boot**: 3.x (Gradle - Groovy)
+- **Spring Boot**: 3.5.4 (Gradle - Groovy)
 - **Database**: MySQL 8.x
 - **빌드 도구**: Gradle
 - **IDE 권장**: IntelliJ IDEA
