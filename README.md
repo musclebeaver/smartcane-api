@@ -16,10 +16,10 @@ React 프론트엔드와 연동하여, 스마트 지팡이 기능을 지원하�
 
 ## 🚀 프로젝트 실행 방법
 
-```bash
+
 # 1. 레포 클론
-git clone https://github.com/musclebeaver/smartcane-api.git
-cd smartcane-api
+- git clone https://github.com/musclebeaver/smartcane-api.git
+- cd smartcane-api
 
 # 2. 브랜치 생성 (작업 단위별)
 git checkout -b feature/<기능명>
@@ -27,9 +27,9 @@ git checkout -b feature/<기능명>
 # 3. 애플리케이션 실행
 ./gradlew bootRun
 
+---
 
-
-# 스마트 지팡이 결제·버스정보 백엔드 (Spring Boot) – README
+# 💳 결제·버스정보 기능 사양
 
 > 교통약자를 위한 **간편 교통결제 + 버스정류장 안내** 백엔드 서버 (Java 21 / Spring Boot / JPA / MySQL)
 
@@ -50,14 +50,7 @@ git checkout -b feature/<기능명>
 - **인증/보안**: OAuth2/JWT, 기기 바인딩(디바이스 토큰), TLS, 서명된 오프라인 토큰(옵션)
 - **단말 연동**: 버스/지하철 단말 스캔(REST/gRPC/SDK), 혹은 지팡이 핸들에 NFC/QR 모듈
 
-[SmartCane PWA] <—HTTPS—> [Spring Boot API] <—> [PG/결제] [공공 Bus API] [MySQL/Redis]
-| Geolocation/TTS | JPA/Batch | 선불/후불 | TAGO/서울/ODsay | 데이터/캐시
-
-markdown
-복사
-편집
-
----
+--
 
 ## 3) 기능 범위
 ### 3.1 결제/정산
@@ -75,16 +68,14 @@ markdown
 
 ## 4) 최소 도메인 모델(요약)
 - **User**(회원/보호자)
-- **Device**(지팡이/폰): `id, type=CANEx|PHONE, serial, status, userId`
-- **PaymentMethod**: `id, userId, type=CARD|WALLET, maskedPan, pgCustomerKey`
-- **TapEvent**: `id, userId, deviceId, routeId, stopId, tapType(BOARD|ALIGHT), ts, authResult, farePreview`
-- **Trip**: `id, userId, startTapId, endTapId, fareFinal, status`
-- **FareRule**: `id, mode, baseFare, distanceStep, discountPolicy, timePolicy`
-- **Stop/Route/RouteStop**: 정류장/노선/매핑
-- **Settlement**: 일배치 결과 집계
-- **ArrivalCache**(옵션): 짧은 TTL 실시간 도착 캐시
-
-> **DB**: MySQL 8.x, 주요 테이블에 인덱스(특히 `TapEvent.ts`, `Stop(lat,lng)` 지리좌표 인덱스).
+- **Device**(지팡이/폰)
+- **PaymentMethod**
+- **TapEvent**
+- **Trip**
+- **FareRule**
+- **Stop/Route/RouteStop**
+- **Settlement**
+- **ArrivalCache**(옵션)
 
 ---
 
@@ -112,7 +103,7 @@ markdown
 - `GET  /api/stops/search?q=...`
 - `GET  /api/routes/search?q=...`
 
-### 5.6 관리자(요금·노선·정류장)
+### 5.6 관리자
 - `GET/POST/PUT/DELETE /api/admin/fare-rules`
 - `GET/POST/PUT/DELETE /api/admin/routes`
 - `GET/POST/PUT/DELETE /api/admin/stops`
@@ -120,17 +111,14 @@ markdown
 ---
 
 ## 6) 보안/규제 가이드
-- **카드정보 저장 금지**: 토큰화, 민감정보는 PG가 보관
-- **전송구간**: HTTPS/TLS 필수, JWT 만료 단축 + 리프레시 토큰 화이트리스트
-- **오프라인 토큰**: 서버 서명(예: ECDSA) + 짧은 TTL(수분) + 단말 기기바인딩
-- **로그**: PII/결제정보 마스킹, 접근로그 분리 보관
+- 카드정보 저장 금지(토큰화/PG 보관)
+- HTTPS/TLS 전송
+- JWT 만료 단축 + 리프레시 토큰 화이트리스트
+- 로그 마스킹, 접근로그 분리 보관
 
 ---
 
 ## 7) 버스 정보 프로바이더 전략
-> 지역/커버리지/비용에 따라 선택. 공통 DTO로 어댑터화.
-- **TAGO(국토부)**: 전국 정류장/노선 기초 데이터 적재(배치)
-- **서울시/지자체**: 상세 도착/접근성(저상버스 등) 보강
-- **ODsay(상용)**: 전국 통합 도착/길찾기(유료, 일원화 용이)
-
-환경변수 예시:
+- **TAGO(국토부)**: 전국 정류장/노선 데이터 적재
+- **서울시/지자체**: 도착/접근성 정보
+- **ODsay(상용)**: 전국 통합 도착/길찾기
