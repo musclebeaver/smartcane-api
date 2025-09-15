@@ -4,6 +4,9 @@ import com.smartcane.api.common.model.Auditable;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.time.LocalDate;
+
 //회원 기본 프로필과 권한
 @Entity
 @Table(name = "users",
@@ -22,6 +25,9 @@ public class User extends Auditable {
 
     @Column(length = 60)
     private String nickname;                // 표시 이름
+
+    @Column(columnDefinition = "DATE")
+    private LocalDate birthDate;   // 생년월일 (선택적)
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
