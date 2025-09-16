@@ -116,26 +116,24 @@ sequenceDiagram
 
 ## 컴포넌트/데이터 모델
 
+
 ```mermaid
 flowchart LR
   subgraph Client
     App[모바일·관리 UI]
     Validator[차량 단말 · 리더기]
   end
-
   subgraph API[SmartCane API]
     DC[DeviceController]
     DBC[DeviceBindingController]
     KC[KeyController]
     OTC[OfflineTokenController]
-
     subgraph Svc[Service Layer]
       DS[DeviceService]
       DBS[DeviceBindingService]
       KS[KeyService]
       OTS[OfflineTokenService]
     end
-
     subgraph Repo[Repository Layer]
       DR[DeviceRepository]
       DBR[DeviceBindingRepository]
@@ -143,28 +141,24 @@ flowchart LR
       OTR[OfflineTokenRepository]
     end
   end
-
   subgraph Sec[Security Utils]
     KU[KeyUtil JWK JWKS]
     AU[AuthUtil]
     SH[SecureHashUtil]
   end
-
-  %% DB는 실린더 모양 노드로 표시
   subgraph DB[MySQL]
     T1[(device)]
     T2[(device_binding)]
     T3[(device_key)]
     T4[(offline_token)]
   end
-
-  App -->|REST| DC --> DS --> DR --> T1
-  App -->|REST| DBC --> DBS --> DBR --> T2
-  App -->|REST| KC --> KS --> DKR --> T3
-  App -->|REST| OTC --> OTS --> OTR --> T4
+  App --> DC --> DS --> DR --> T1
+  App --> DBC --> DBS --> DBR --> T2
+  App --> KC --> KS --> DKR --> T3
+  App --> OTC --> OTS --> OTR --> T4
   KS --> KU
   OTS --> KU
-  Validator -->|/api/devices/{id}/jwks| KC
+  Validator --> KC
 
 ```
 
