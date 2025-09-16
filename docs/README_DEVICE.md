@@ -119,8 +119,8 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   subgraph Client
-    App[모바일/관리 UI]
-    Validator[차량 단말(리더기)]
+    App[모바일·관리 UI]
+    Validator[차량 단말 · 리더기]
   end
 
   subgraph API[SmartCane API]
@@ -145,12 +145,12 @@ flowchart LR
   end
 
   subgraph Sec[Security Utils]
-    KU[KeyUtil (JWK/JWKS)]
+    KU[KeyUtil JWK JWKS]
     AU[AuthUtil]
     SH[SecureHashUtil]
   end
 
-  %% 서브그래프 제목만 선언하고, 실린더 노드는 내부에서 지정
+  %% DB는 실린더 모양 노드로 표시
   subgraph DB[MySQL]
     T1[(device)]
     T2[(device_binding)]
@@ -165,6 +165,7 @@ flowchart LR
   KS --> KU
   OTS --> KU
   Validator -->|/api/devices/{id}/jwks| KC
+
 ```
 
 ---
