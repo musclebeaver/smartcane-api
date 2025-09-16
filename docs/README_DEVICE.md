@@ -150,11 +150,12 @@ flowchart LR
     SH[SecureHashUtil]
   end
 
-  subgraph DB[Database]
-    T1[device]
-    T2[device_binding]
-    T3[device_key]
-    T4[offline_token]
+  %% 서브그래프 제목만 선언하고, 실린더 노드는 내부에서 지정
+  subgraph DB[MySQL]
+    T1[(device)]
+    T2[(device_binding)]
+    T3[(device_key)]
+    T4[(offline_token)]
   end
 
   App -->|REST| DC --> DS --> DR --> T1
@@ -164,7 +165,6 @@ flowchart LR
   KS --> KU
   OTS --> KU
   Validator -->|/api/devices/{id}/jwks| KC
-
 ```
 
 ---
