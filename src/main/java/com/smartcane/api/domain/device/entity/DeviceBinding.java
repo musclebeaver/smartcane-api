@@ -1,34 +1,42 @@
 package com.smartcane.api.domain.device.entity;
 
-import com.smartcane.api.common.model.Auditable;
-import com.smartcane.api.domain.identity.entity.User;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.Instant;
-//사용자–단말 연결 기록. 1명이 여러 단말, 단말을 다른 사용자에게 이전하는 경우 추적
-@Entity
-@Table(name = "device_binding",
-        indexes = {
-                @Index(name = "ix_binding_user", columnList = "user_id"),
-                @Index(name = "ix_binding_device", columnList = "device_id"),
-                @Index(name = "ix_binding_active", columnList = "active")
-        })
+import java.util.UUID;
+
 @Getter @Setter
-public class DeviceBinding extends Auditable {
+@NoArgsConstructor @AllArgsConstructor @Builder
+@Entity
+@Table(name = "device_binding", indexes = {
+        @Index(name = "ix_binding_user", columnList = "user_id"),
+        @Index(name = "ix_binding_device_active", columnList = "device_id,active")
+})
+public class DeviceBinding {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;                   // PK
+    @Id @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id", nullable = false)
-    private User user;                 // 사용자
+    @Column(name = "device_id", nullable = false)
+    private UUID deviceId;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "device_id", nullable = false)
-    private Device device;             // 단말
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
-    private Instant boundAt;           // 바인딩(연결)된 시각
+    @Column(name = "active", nullable = false)
+    private boolean active;  // true=현재 바인딩, false=해지됨
 
-    @Column(nullable = false)
-    private boolean active = true;     // 활성 바인딩 여부
+    @Column(name = "bound_at", nullable = false)
+    private Instant boundAt;
+
+    @Column(name = "unbound_at")
+    private Instant unboundAt;
+
+    @PrePersist
+    void prePersist() {
+        this.boundAt = (this.boundAt == null) ? Instant.now() : this.boundAt;
+        // 기본 신규 바인딩은 active=true
+        if (!this.active) this.active = true;
+    }
 }

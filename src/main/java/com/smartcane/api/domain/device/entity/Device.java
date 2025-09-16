@@ -1,38 +1,56 @@
 package com.smartcane.api.domain.device.entity;
 
-import com.smartcane.api.common.model.Auditable;
+
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.Comment;
+
 
 import java.time.Instant;
-//지팡이 단말 자체(시리얼, 모델, 펌웨어, 상태, 마지막 접속 시각).
-@Entity
-@Table(name = "device",
-        indexes = {
-                @Index(name = "ux_device_serial", columnList = "serial", unique = true),
-                @Index(name = "ix_device_status", columnList = "status")
-        })
+import java.util.UUID;
+
+
 @Getter @Setter
-public class Device extends Auditable {
+@NoArgsConstructor @AllArgsConstructor @Builder
+@Entity @Table(name = "device", indexes = {
+        @Index(name = "ux_device_sn", columnList = "serial_no", unique = true),
+        @Index(name = "ix_device_status", columnList = "status")
+})
+public class Device {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-    public enum Status { ACTIVE, INACTIVE, LOST } // 단말 상태
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;                   // PK
+    @Comment("제조 시리얼")
+    @Column(name = "serial_no", nullable = false, unique = true, length = 64)
+    private String serialNo;
 
-    @Column(nullable = false, length = 64, unique = true)
-    private String serial;             // 단말 고유 시리얼 번호 (유니크)
 
-    @Column(length = 60)
-    private String model;              // 모델명 (예: SmartCane-V1)
+    @Comment("디바이스 표시명")
+    @Column(name = "display_name", length = 128)
+    private String displayName;
 
-    @Column(length = 40)
-    private String firmware;           // 펌웨어 버전
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 16, nullable = false)
-    private Status status = Status.ACTIVE; // 상태: 사용중/비활성/분실
+    @Comment("활성/정지/폐기")
+    @Column(name = "status", nullable = false, length = 16)
+    private String status; // ACTIVE, SUSPENDED, RETIRED
 
-    private Instant lastSeenAt;        // 마지막 서버 접속 시각
+
+    @Comment("등록 시각")
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+
+    @Comment("수정 시각")
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+
+    @PrePersist void prePersist(){
+        this.createdAt = this.createdAt == null ? Instant.now() : this.createdAt;
+        this.updatedAt = Instant.now();
+        this.status = this.status == null ? "ACTIVE" : this.status;
+    }
+    @PreUpdate void preUpdate(){ this.updatedAt = Instant.now(); }
 }
