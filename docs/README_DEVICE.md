@@ -118,42 +118,53 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  subgraph API
+  subgraph Client
+    App[모바일/관리 UI]
+    Validator[차량 단말(리더기)]
+  end
+
+  subgraph API[SmartCane API]
     DC[DeviceController]
     DBC[DeviceBindingController]
     KC[KeyController]
     OTC[OfflineTokenController]
+
+    subgraph Svc[Service Layer]
+      DS[DeviceService]
+      DBS[DeviceBindingService]
+      KS[KeyService]
+      OTS[OfflineTokenService]
+    end
+
+    subgraph Repo[Repository Layer]
+      DR[DeviceRepository]
+      DBR[DeviceBindingRepository]
+      DKR[DeviceKeyRepository]
+      OTR[OfflineTokenRepository]
+    end
   end
-  subgraph Service
-    DS[DeviceService]
-    DBS[DeviceBindingService]
-    KS[KeyService]
-    OTS[OfflineTokenService]
-  end
-  subgraph Repo
-    DR[DeviceRepository]
-    DBR[DeviceBindingRepository]
-    DKR[DeviceKeyRepository]
-    OTR[OfflineTokenRepository]
-  end
-  subgraph DB[(MySQL)]
-    T1[[device]]
-    T2[[device_binding]]
-    T3[[device_key]]
-    T4[[offline_token]]
-  end
-  subgraph Sec[Security Util]
-    KU[KeyUtil(JWK/JWKS)]
+
+  subgraph Sec[Security Utils]
+    KU[KeyUtil (JWK/JWKS)]
     AU[AuthUtil]
     SH[SecureHashUtil]
   end
 
-  DC-->DS-->DR-->T1
-  DBC-->DBS-->DBR-->T2
-  KC-->KS-->DKR-->T3
-  OTC-->OTS-->OTR-->T4
-  KS-->KU
-  OTS-->KU
+  subgraph DB[Database]
+    T1[device]
+    T2[device_binding]
+    T3[device_key]
+    T4[offline_token]
+  end
+
+  App -->|REST| DC --> DS --> DR --> T1
+  App -->|REST| DBC --> DBS --> DBR --> T2
+  App -->|REST| KC --> KS --> DKR --> T3
+  App -->|REST| OTC --> OTS --> OTR --> T4
+  KS --> KU
+  OTS --> KU
+  Validator -->|/api/devices/{id}/jwks| KC
+
 ```
 
 ---
