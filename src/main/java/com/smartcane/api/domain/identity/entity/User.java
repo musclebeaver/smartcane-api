@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @Getter @Setter
 public class User extends Auditable {
 
-    public enum Role { USER, ADMIN }       // 권한: 일반 사용자 / 관리자
+    public enum Role { USER, ADMIN,SYSTEM,CS }       // 권한: 일반 사용자 / 관리자
     public enum Status { ACTIVE, SUSPENDED, DELETED } // 계정 상태
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -29,6 +29,12 @@ public class UserAuth extends Auditable {
     @Column(length = 16, nullable = false)
     private Provider provider = Provider.LOCAL; // 인증 제공자 타입
 
+    /**
+     * 소셜 제공자 안에서의 고유 식별자 (예: Kakao id, Naver id)
+     * LOCAL에는 null
+     */
+    @Column(name = "provider_id", length = 100)
+    private String providerId;
     @Column(length = 100)
     private String passwordHash;               // 비밀번호 해시(LOCAL일 때만 사용)
 
