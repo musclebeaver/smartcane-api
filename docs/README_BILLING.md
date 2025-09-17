@@ -112,14 +112,14 @@ flowchart LR
     Batch[Settlement Job]
   end
 
-  subgraph API[SmartCane API]
+  subgraph API["SmartCane API"]
     BC[BillingController]
-    subgraph Svc[Service Layer]
+    subgraph Svc["Service Layer"]
       BS[BillingServiceImpl]
       TFC[TransferFareService]
       INV[InvoiceService]
     end
-    subgraph Repo[Repository Layer]
+    subgraph Repo["Repository Layer"]
       BPR[BillingProfileRepository]
       PLR[PaymentLedgerRepository]
       WRR[WebhookReceiptRepository]
@@ -132,22 +132,35 @@ flowchart LR
     Webhook[Toss Webhook]
   end
 
-  subgraph DB[(MySQL)]
+  %% ❗️서브그래프 선언은 라인 단독으로, 라벨은 대괄호 사용
+  subgraph DB[MySQL]
     T1[(billing_profile)]
     T2[(payment_ledger)]
     T3[(webhook_receipt)]
     T4[(invoice)]
   end
 
+  %% 흐름
   UI --> BC --> BS --> TP
-  Webhook --> BC --> BS --> WRR & PLR & IR
-  BS --> BPR --> T1
-  BS --> PLR --> T2
-  BS --> WRR --> T3
-  INV --> IR --> T4
+  Webhook --> BC --> BS
+
+  %% 서비스 → 레포
+  BS --> BPR
+  BS --> PLR
+  BS --> WRR
+  INV --> IR
+
+  %% 레포 → 테이블 (DB)
+  BPR --> T1
+  PLR --> T2
+  WRR --> T3
+  IR  --> T4
+
+  %% 배치 경로
   Batch --> TFC
   Batch --> INV
   Batch --> BS
+
 ```
 
 ## 데이터 테이블(Flyway 요약)
