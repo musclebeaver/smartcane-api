@@ -16,8 +16,7 @@ React 프론트엔드와 연동하여, 스마트 지팡이 기능을 지원하�
 
 ## 📂 도메인별 문서
 - [Device 도메인](docs/README_DEVICE.md)  
-- [결제·정산 도메인](docs/README_PAYMENT.md)  
-- [버스 안내 도메인](docs/README_BUS.md)  
+- [결제·정산 도메인](docs/README_BILLING.md)
 - [인증/보안 도메인](docs/README_AUTH.md)
   
 ---
