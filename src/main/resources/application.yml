@@ -68,3 +68,18 @@ smartcane:
     # 성공 시 프론트(웹) 또는 앱 딥링크로 리다이렉트
     success-redirect: ${OAUTH_SUCCESS_REDIRECT:http://localhost:5173/auth/success}
     failure-redirect: ${OAUTH_FAILURE_REDIRECT:http://localhost:5173/auth/failure}
+  fare:
+    currency: KRW
+    bus-fare: 1400
+    subway-fare: 1550
+    discounts:
+      accessible-user-rate: 0.5
+      subscription-rate: 0.0
+    transfer:
+      enabled: true
+      window-minutes: 30      # 환승 유효 시간(분)
+      max-transfers: 4        # 최대 환승 횟수(추가 탑승 수)
+      pricing:
+        type: FREE            # FREE | FLAT | RATIO
+        flat-amount: 0        # type=FLAT 시, 환승 1회당 정액
+        ratio: 0.0            # type=RATIO 시, 환승 1회당 원요금 대비 비율(예: 0.5 = 50%)
