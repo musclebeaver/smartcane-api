@@ -86,6 +86,6 @@ smartcane:
 
 billing:
   api-base-url: https://api.tosspayments.com
-  secret-key: sk_test_xxx123456789
+  secret-key: ${TOSS_SECRET_KEY}
   webhook:
-    secret: whsec_test_yyy987654321
+    secret: ${TOSS_WEBHOOK_SECRET}

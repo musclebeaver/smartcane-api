@@ -1,5 +1,5 @@
 // src/main/java/com/smartcane/api/config/OpenApiConfig.java
-package com.smartcane.api.config;
+package com.smartcane.api.security.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;

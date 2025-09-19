@@ -8,4 +8,9 @@ import java.util.Optional;
 public interface BillingProfileRepository extends JpaRepository<BillingProfile, Long> {
     Optional<BillingProfile> findByUserId(Long userId);
     Optional<BillingProfile> findByCustomerKey(String customerKey);
+
+
+    Optional<BillingProfile> findFirstByUserIdAndStatusOrderByUpdatedAtDesc(
+            Long userId, BillingProfile.BillingStatus status
+    );
 }

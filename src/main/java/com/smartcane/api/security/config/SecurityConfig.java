@@ -1,7 +1,11 @@
+// src/main/java/com/smartcane/api/config/SecurityConfig.java
 package com.smartcane.api.security.config;
 
 import com.smartcane.api.security.jwt.JwtAuthenticationFilter;
 import com.smartcane.api.security.jwt.JwtTokenProvider;
+import com.smartcane.api.security.oauth.CustomOAuth2UserService;
+import com.smartcane.api.security.oauth.OAuth2AuthenticationFailureHandler;
+import com.smartcane.api.security.oauth.OAuth2AuthenticationSuccessHandler;
 import com.smartcane.api.security.web.RestAccessDeniedHandler;
 import com.smartcane.api.security.web.RestAuthEntryPoint;
 import lombok.RequiredArgsConstructor;
@@ -12,9 +16,13 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.*;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
@@ -23,62 +31,84 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    // 필수 컴포넌트
     private final JwtTokenProvider tokenProvider;
     private final RestAuthEntryPoint authEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    // 소셜(OAuth2) 사용할 때만 빈이 등록되어 있을 것
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+    private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
 
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // ✅ 운영 권장: CSRF 활성 + 웹훅만 예외 처리
-                // .csrf(csrf -> csrf.ignoringRequestMatchers("/api/billing/webhook"))
-                // 개발/POC: 전체 비활성
-                .csrf(csrf -> csrf.disable())
+                // REST 기본 설정
+                .csrf(csrf -> csrf.disable())                // 운영에선 필요시 특정 경로만 예외 처리로 전환
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // 예외 처리(401/403)
                 .exceptionHandling(eh -> eh
                         .authenticationEntryPoint(authEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .authorizeHttpRequests(reg -> reg
+
+                // 인가 규칙
+                .authorizeHttpRequests(auth -> auth
                         // 공개 엔드포인트
-                        .requestMatchers("/actuator/health").permitAll()
-                        .requestMatchers("/v3/api-docs/**","/swagger-ui/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/actuator/health",
+                                "/api/auth/**",                               // 회원가입/로그인/리프레시/로그아웃
+                                "/oauth2/**", "/login/oauth2/**", "/oauth2/authorization/**"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 공개 API(예: 대중교통 공개)
                         .requestMatchers(HttpMethod.GET, "/api/transit/public/**").permitAll()
 
-                        // ✅ 웹훅: 토스 → 서버 (서명검증은 앱 내부에서 수행)
+                        // 웹훅 (예: 토스 결제 웹훅)
                         .requestMatchers(HttpMethod.POST, "/api/billing/webhook").permitAll()
 
-                        // ✅ 빌링: 최초 빌링키 발급(사용자 본인)
+                        // 빌링 권한 예시
                         .requestMatchers(HttpMethod.POST, "/api/billing/issue").hasAnyRole("USER","ADMIN")
-
-                        // ✅ 자동결제 트리거: 보통 서버 배치/시스템 계정이 호출
                         .requestMatchers(HttpMethod.POST, "/api/billing/pay").hasAnyRole("SYSTEM","ADMIN","USER")
-                        // 실무에선 USER 직접 호출을 금지하고, 정산 배치만 호출하도록 좁히는 것도 좋음:
-                        // .requestMatchers(HttpMethod.POST, "/api/billing/pay").hasAnyRole("SYSTEM","ADMIN")
-
-                        // ✅ 취소(환불): 더 보수적으로
                         .requestMatchers(HttpMethod.POST, "/api/billing/cancel").hasAnyRole("ADMIN","CS","SYSTEM")
 
-                        // 나머지는 인증 필요
+                        // 그 외 보호
                         .anyRequest().authenticated()
+                )
+
+                // OAuth2 로그인(있을 때만 동작)
+                .oauth2Login(oauth -> oauth
+                        .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler)
                 );
 
+        // JWT 필터
         http.addFilterBefore(new JwtAuthenticationFilter(tokenProvider),
                 UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
+    // CORS (운영에서는 Origin을 구체적으로 제한)
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(List.of("*")); // 운영: 정확한 Origin만 나열
-        cfg.setAllowedMethods(List.of("GET","POST","PATCH","PUT","DELETE","OPTIONS"));
+        cfg.setAllowedOrigins(List.of("*")); // 운영: 정확한 Origin 리스트로 교체
+        cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         cfg.setAllowedHeaders(List.of(
                 "Authorization","Content-Type","X-Requested-With",
-                // (참고) 웹훅은 서버→서버 호출이라 CORS 대상 아님. 그래도 열어두어 무해.
                 "tosspayments-webhook-signature",
                 "tosspayments-webhook-transmission-time",
                 "tosspayments-webhook-transmission-id",
@@ -86,6 +116,7 @@ public class SecurityConfig {
         ));
         cfg.setExposedHeaders(List.of("Authorization"));
         cfg.setAllowCredentials(false);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;
