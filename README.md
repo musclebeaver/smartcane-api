@@ -35,6 +35,45 @@ git checkout -b feature/<기능명>
 
 ---
 
+## 🐳 Docker로 실행하기
+
+1. 애플리케이션 빌드 & 이미지 생성
+
+   ```bash
+   docker build -t smartcane-api .
+   ```
+
+2. 런타임 환경 변수 설정 (예시)
+
+   > 아래 값들은 **컨테이너 실행 시점에 주입**해야 하며, 이미지를 빌드할 때 하드코딩하지 않습니다.
+   > 실제 값은 배포 환경에 맞춰 Secrets Manager, CI/CD Variables, `.env` 파일 등으로 관리하세요.
+
+   | 목적 | 환경 변수 예시 |
+   | --- | --- |
+   | 데이터베이스 연결 | `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` |
+   | OAuth 연동 | `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET` |
+   | JWT 서명 키 | `JWT_SECRET` |
+   | 빌링/PG 웹훅 검증 | `BILLING_WEBHOOK_SECRET` |
+
+3. 컨테이너 기동 (예시)
+
+   ```bash
+   docker run --rm \
+     -e SPRING_DATASOURCE_URL=jdbc:mysql://host:3306/smartcane \
+     -e SPRING_DATASOURCE_USERNAME=smartcane \
+     -e SPRING_DATASOURCE_PASSWORD=change-me \
+     -e OAUTH_CLIENT_ID=your-client-id \
+     -e OAUTH_CLIENT_SECRET=your-client-secret \
+     -e JWT_SECRET=super-secret-key \
+     -e BILLING_WEBHOOK_SECRET=pg-webhook-secret \
+     -p 8081:8081 \
+     smartcane-api
+   ```
+
+   > 기본 `SPRING_PROFILES_ACTIVE` 값은 Docker 이미지에서 `prod`로 설정되어 있습니다. 필요 시 `-e SPRING_PROFILES_ACTIVE=...` 옵션으로 덮어쓸 수 있습니다.
+
+---
+
 # 💳 결제·버스정보 기능 사양
 
 > 교통약자를 위한 **간편 교통결제 + 버스정류장 안내** 백엔드 서버 (Java 21 / Spring Boot / JPA / MySQL)
