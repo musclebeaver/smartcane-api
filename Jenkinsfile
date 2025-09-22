@@ -1,37 +1,40 @@
 pipeline {
-  agent any   // ← 여기! docker 에이전트 대신 any 사용
-
+  agent any
   environment {
     REGISTRY   = "ghcr.io"
-    OWNER      = "musclebeaver"              // GitHub 계정/조직명
+    OWNER      = "musclebeaver"
     APP        = "smartcane-api"
     IMAGE_BASE = "${REGISTRY}/${OWNER}/${APP}"
-    GHCR_PAT   = credentials('smartcane-ghcr')   // Jenkins Credentials ID
+    GHCR_PAT   = credentials('smartcane-ghcr')
   }
-
-  options { timestamps(); ansiColor('xterm'); disableConcurrentBuilds() }
+  options { timestamps(); disableConcurrentBuilds() }
 
   stages {
-    stage('Checkout') { steps { checkout scm } }
+    stage('Checkout') {
+      steps { checkout scm }
+    }
 
     stage('Build JAR') {
       steps {
-        dir('backend') {
-          sh './gradlew clean build -x test'
-        }
+        sh '''
+          chmod +x ./gradlew || true
+          ./gradlew clean build -x test
+        '''
       }
     }
 
     stage('Build & Push Image') {
       steps {
         script {
-          def branch   = env.BRANCH_NAME ?: 'local'
-          def channel  = (branch == 'main') ? 'prod' : (branch == 'dev' ? 'dev' : branch.replaceAll('[^a-zA-Z0-9_.-]','-'))
-          def jar      = sh(script: "ls backend/build/libs/*.jar | head -n 1", returnStdout: true).trim()
+          def branch  = env.BRANCH_NAME ?: 'local'
+          def channel = (branch == 'main') ? 'prod' : (branch == 'dev' ? 'dev' : branch.replaceAll('[^a-zA-Z0-9_.-]','-'))
+
+          // 루트 Gradle 산출물 경로
+          def jar = sh(script: "ls build/libs/*.jar | head -n 1", returnStdout: true).trim()
 
           sh """
-            cp ${jar} backend/app.jar
-            cat > backend/Dockerfile <<'EOF'
+            cp "${jar}" app.jar
+            cat > Dockerfile <<'EOF'
             FROM eclipse-temurin:21-jre-alpine
             COPY app.jar /app/app.jar
             WORKDIR /app
@@ -40,12 +43,11 @@ pipeline {
             EOF
 
             echo \$GHCR_PAT | docker login ${REGISTRY} -u ${OWNER} --password-stdin
-            docker build -t ${IMAGE_BASE}:${channel}-${BUILD_NUMBER} -t ${IMAGE_BASE}:${channel} backend
+            docker build -t ${IMAGE_BASE}:${channel}-${BUILD_NUMBER} -t ${IMAGE_BASE}:${channel} .
             docker push  ${IMAGE_BASE}:${channel}-${BUILD_NUMBER}
             docker push  ${IMAGE_BASE}:${channel}
           """
 
-          // 배포 디렉터리 브랜치별 분기 (WAS 동일 호스트)
           env.DEPLOY_DIR = (branch == 'main') ? '/app/smartcane/was' : '/app/smartcane/was-dev'
         }
       }
@@ -65,17 +67,7 @@ pipeline {
   }
 
   post {
-    success {
-      script {
-        if (env.BRANCH_NAME == 'main') {
-          echo "배포 성공 🎉 운영: http://<WAS_IP>:8081"
-        } else if (env.BRANCH_NAME == 'dev') {
-          echo "배포 성공 🎉 개발: http://<WAS_IP>:8082"
-        } else {
-          echo "배포 성공 🎉 브랜치 ${env.BRANCH_NAME}"
-        }
-      }
-    }
+    success { echo "배포 성공 🎉 ${env.BRANCH_NAME}" }
     failure { echo "배포 실패 ❌ 콘솔 로그 확인" }
   }
 }
