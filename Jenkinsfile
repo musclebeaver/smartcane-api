@@ -1,85 +1,78 @@
 pipeline {
-    agent { label 'docker' }
+  agent any
 
-    environment {
-        REGISTRY_IMAGE       = 'registry.example.com/smartcane-api'
-        DOCKER_CREDENTIALS_ID = 'docker-registry-credentials'
-        DOCKERFILE_PATH      = 'Dockerfile'
-        DEPLOY_JOB           = ''
+  environment {
+    REGISTRY   = "ghcr.io"
+    OWNER      = "musclebeaver"         // GitHub 사용자명
+    IMAGE_NAME = "${REGISTRY}/${OWNER}/smartcane-api"
+    GHCR_USER  = "musclebeaver"
+    GHCR_PAT   = credentials('smartcane-ghcr')   // Jenkins에 등록한 GHCR 토큰
+  }
+
+  options {
+    timestamps()
+    ansiColor('xterm')
+    disableConcurrentBuilds()
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
     }
 
-    options {
-        timestamps()
-        skipDefaultCheckout(true)
+    stage('Build JAR') {
+      steps {
+        dir('backend') {
+          sh './gradlew clean build -x test'
+        }
+      }
     }
 
-    stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-                script {
-                    env.GIT_SHORT_COMMIT = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-                }
-            }
-        }
+    stage('Build & Push Docker Image') {
+      steps {
+        script {
+          def jarFile = sh(script: "ls backend/build/libs/*.jar | head -n 1", returnStdout: true).trim()
+          sh """
+            cp ${jarFile} backend/app.jar
 
-        stage('Build & Test') {
-            agent {
-                docker {
-                    image 'eclipse-temurin:21-jdk'
-                    args '-v $WORKSPACE/.gradle:/home/gradle/.gradle'
-                }
-            }
-            steps {
-                sh './gradlew clean test'
-                sh './gradlew bootJar'
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, testResults: 'build/test-results/**/*.xml'
-                    archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true, allowEmptyArchive: true
-                }
-            }
-        }
+            cat > backend/Dockerfile <<'EOF'
+            FROM eclipse-temurin:21-jre-alpine
+            COPY app.jar /app/app.jar
+            WORKDIR /app
+            EXPOSE 8081
+            ENTRYPOINT ["java", "-jar", "app.jar"]
+            EOF
 
-        stage('Docker Build') {
-            steps {
-                script {
-                    env.IMAGE_TAG = env.GIT_SHORT_COMMIT ?: env.BUILD_NUMBER
-                }
-                sh "docker build -f ${env.DOCKERFILE_PATH} -t ${env.REGISTRY_IMAGE}:${env.IMAGE_TAG} ."
-            }
+            echo $GHCR_PAT | docker login $REGISTRY -u $GHCR_USER --password-stdin
+            docker build -t $IMAGE_NAME:${BUILD_NUMBER} -t $IMAGE_NAME:latest backend
+            docker push $IMAGE_NAME:${BUILD_NUMBER}
+            docker push $IMAGE_NAME:latest
+          """
         }
-
-        stage('Docker Push') {
-            when {
-                expression { return env.DOCKER_CREDENTIALS_ID?.trim() }
-            }
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: env.DOCKER_CREDENTIALS_ID,
-                        usernameVariable: 'REGISTRY_USERNAME',
-                        passwordVariable: 'REGISTRY_PASSWORD'
-                    )
-                ]) {
-                    script {
-                        def registryHost = env.REGISTRY_IMAGE.split('/')[0]
-                        sh "echo ${REGISTRY_PASSWORD} | docker login ${registryHost} --username ${REGISTRY_USERNAME} --password-stdin"
-                        sh "docker push ${env.REGISTRY_IMAGE}:${env.IMAGE_TAG}"
-                        sh 'docker logout || true'
-                    }
-                }
-            }
-        }
-
-        stage('Trigger Deployment') {
-            when {
-                expression { return env.DEPLOY_JOB?.trim() }
-            }
-            steps {
-                build job: env.DEPLOY_JOB, parameters: [string(name: 'IMAGE_TAG', value: env.IMAGE_TAG)]
-            }
-        }
+      }
     }
+
+    stage('Deploy to WAS') {
+      steps {
+        sh '''
+          cd /app/smartcane/was
+          echo $GHCR_PAT | docker login $REGISTRY -u $GHCR_USER --password-stdin
+          docker compose pull
+          docker compose up -d
+          docker image prune -f
+        '''
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "배포 성공 🎉 http://<WAS_IP>:8081 에서 확인하세요"
+    }
+    failure {
+      echo "배포 실패 ❌"
+    }
+  }
 }
