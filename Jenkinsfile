@@ -2,19 +2,25 @@ pipeline {
   agent any
   environment {
     REGISTRY   = "ghcr.io"
-    OWNER      = "musclebeaver"               // GitHub 계정/조직
+    OWNER      = "musclebeaver"                  // GitHub 계정/조직
     APP        = "smartcane-api"
     IMAGE_BASE = "${REGISTRY}/${OWNER}/${APP}"
-    GHCR_PAT   = credentials('smartcane-ghcr') // write:packages + read:packages
+    GHCR_PAT   = credentials('smartcane-ghcr')   // GHCR PAT (write:packages, read:packages)
   }
-  options { timestamps(); disableConcurrentBuilds() }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
 
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
-    stage('Build & Push Image (with repo Dockerfile)') {
+    stage('Build & Push Image') {
       steps {
         script {
           def branch  = env.BRANCH_NAME ?: 'local'
@@ -22,13 +28,11 @@ pipeline {
                        : (branch == 'dev')  ? 'dev'
                        : branch.replaceAll('[^a-zA-Z0-9_.-]','-')
 
-          // GHCR 로그인 (쉘에서 변수 확장하도록 \$ 이스케이프 주의)
           sh '''
             set -euo pipefail
             echo "$GHCR_PAT" | docker login ghcr.io -u ''' + "${OWNER}" + ''' --password-stdin
           '''
 
-          // 레포에 있는 Dockerfile 그대로 사용 (멀티스테이지가 JAR 빌드까지 수행)
           sh """
             set -euo pipefail
             docker build -f Dockerfile \\
@@ -51,16 +55,25 @@ pipeline {
           set -euo pipefail
           cd ${DEPLOY_DIR}
           echo "$GHCR_PAT" | docker login ghcr.io -u ''' + "${OWNER}" + ''' --password-stdin
-          docker compose pull
-          docker compose up -d
+
+          # 최신 이미지 pull
+          docker compose pull smartcane-api
+
+          # 컨테이너 교체 (force recreate + orphan 제거)
+          docker compose up -d --force-recreate --remove-orphans smartcane-api
+
+          # 오래된 dangling 이미지 정리
           docker image prune -f
+
+          # 상태 확인
+          docker compose ps
         '''
       }
     }
   }
 
   post {
-    success { echo "배포 성공 🎉 branch=${env.BRANCH_NAME}, tag=${env.DEPLOY_TAG}" }
-    failure { echo "배포 실패 ❌ 콘솔 로그 확인" }
+    success { echo "✅ 배포 성공: branch=${env.BRANCH_NAME}, tag=${env.DEPLOY_TAG}" }
+    failure { echo "❌ 배포 실패: 콘솔 로그 확인 필요" }
   }
 }
