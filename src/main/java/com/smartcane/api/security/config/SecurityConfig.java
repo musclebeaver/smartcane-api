@@ -67,6 +67,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/actuator/health",
+                                "/api/healthz",                       // 신규 헬스 체크 엔드포인트
                                 "/api/auth/**",                               // 회원가입/로그인/리프레시/로그아웃
                                 "/oauth2/**", "/login/oauth2/**", "/oauth2/authorization/**"
                         ).permitAll()
