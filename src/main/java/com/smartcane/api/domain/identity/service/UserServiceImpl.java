@@ -8,6 +8,7 @@ import com.smartcane.api.domain.identity.entity.UserAuth;
 import com.smartcane.api.domain.identity.mapper.UserMapper;
 import com.smartcane.api.domain.identity.repository.UserAuthRepository;
 import com.smartcane.api.domain.identity.repository.UserRepository;
+import com.smartcane.api.domain.point.service.PointPaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class UserServiceImpl implements UserService {
     private final UserAuthRepository userAuthRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final PointPaymentService pointPaymentService;
 
     @Override
     public UserResponse signup(UserSignupRequest request) {
@@ -38,6 +40,9 @@ public class UserServiceImpl implements UserService {
         auth.setProvider(UserAuth.Provider.LOCAL);
         auth.setPasswordHash(passwordEncoder.encode(request.password()));
         userAuthRepository.save(auth);
+
+        // 3) 회원 전용 포인트 지갑 생성
+        pointPaymentService.prepareAccount(user); // 회원 가입과 동시에 지갑을 보장합니다.
 
         return userMapper.toResponse(user);
     }

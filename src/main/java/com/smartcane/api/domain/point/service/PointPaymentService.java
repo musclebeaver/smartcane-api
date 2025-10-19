@@ -1,5 +1,6 @@
 package com.smartcane.api.domain.point.service;
 
+import com.smartcane.api.domain.identity.entity.User;
 import com.smartcane.api.domain.point.entity.PointAccount;
 import com.smartcane.api.domain.point.exception.PointAccountNotFoundException;
 import com.smartcane.api.domain.point.repository.PointAccountRepository;
@@ -19,14 +20,31 @@ public class PointPaymentService {
     }
 
     /**
+     * 회원 가입 직후 호출되어 포인트 지갑(계정)을 만들어 줍니다.
+     * 이미 지갑이 존재하는 경우에는 중복 생성을 피하기 위해 기존 엔티티를 그대로 반환합니다.
+     */
+    @Transactional
+    public PointAccount prepareAccount(User user) {
+        if (user.getId() == null) {
+            throw new IllegalArgumentException("포인트 지갑을 생성하려면 사용자 ID가 필요합니다.");
+        }
+        // 회원 지갑은 1:1 관계이므로 한 번만 생성되도록 방어 로직을 둡니다.
+        return pointAccountRepository.findByUserId(user.getId())
+                .orElseGet(() -> pointAccountRepository.save(new PointAccount(user)));
+    }
+
+    private PointAccount getAccountForUpdate(Long userId) {
+        return pointAccountRepository.findByUserId(userId)
+                .orElseThrow(() -> new PointAccountNotFoundException(userId));
+    }
+
+    /**
      * 주어진 사용자에 대해 포인트 결제를 처리합니다.
      * 잔고 부족 시 {@link com.smartcane.api.domain.point.exception.PointInsufficientBalanceException}이 발생합니다.
      */
     @Transactional
     public long payWithPoint(Long userId, long amount) {
-        PointAccount account = pointAccountRepository.findByUserId(userId)
-                .orElseThrow(() -> new PointAccountNotFoundException(userId));
-
+        PointAccount account = getAccountForUpdate(userId);
         account.deduct(amount);  // 실제 차감 로직은 엔티티가 담당합니다.
         return account.getBalance();
     }
@@ -36,10 +54,20 @@ public class PointPaymentService {
      */
     @Transactional
     public long accumulatePoint(Long userId, long amount) {
-        PointAccount account = pointAccountRepository.findByUserId(userId)
-                .orElseThrow(() -> new PointAccountNotFoundException(userId));
-
+        if (amount < 0) {
+            throw new IllegalArgumentException("포인트 적립 금액은 음수일 수 없습니다.");
+        }
+        PointAccount account = getAccountForUpdate(userId);
         account.accumulate(amount);  // 적립 로직 역시 엔티티로 위임했습니다.
         return account.getBalance();
+    }
+
+    /**
+     * 사용자가 직접 충전하는 시나리오에 맞춘 별도 진입점입니다.
+     * accumulatePoint와 동일한 로직이지만, 의도를 드러내기 위해 메서드를 분리했습니다.
+     */
+    @Transactional
+    public long chargePoint(Long userId, long amount) {
+        return accumulatePoint(userId, amount);
     }
 }
