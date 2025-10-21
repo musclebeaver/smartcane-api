@@ -39,6 +39,14 @@ public class PointPaymentService {
     }
 
     /**
+     * 읽기 전용 트랜잭션에서 사용할 포인트 계정을 조회합니다.
+     */
+    private PointAccount getAccount(Long userId) {
+        return pointAccountRepository.findByUserId(userId)
+                .orElseThrow(() -> new PointAccountNotFoundException(userId));
+    }
+
+    /**
      * 주어진 사용자에 대해 포인트 결제를 처리합니다.
      * 잔고 부족 시 {@link com.smartcane.api.domain.point.exception.PointInsufficientBalanceException}이 발생합니다.
      */
@@ -69,5 +77,11 @@ public class PointPaymentService {
     @Transactional
     public long chargePoint(Long userId, long amount) {
         return accumulatePoint(userId, amount);
+    }
+
+    @Transactional(readOnly = true)
+    public long getPointBalance(Long userId) {
+        // 조회 시에는 별도 갱신이 없으므로 읽기 전용 트랜잭션으로 처리합니다.
+        return getAccount(userId).getBalance();
     }
 }
