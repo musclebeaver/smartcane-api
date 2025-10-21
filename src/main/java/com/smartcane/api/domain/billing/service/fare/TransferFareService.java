@@ -15,6 +15,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TransferFareService {
 
+    private static final String TYPE_BASE = "BASE";
+    private static final String TYPE_TRANSFER = "TRANSFER";
+    private static final String TYPE_DISCOUNT_ACCESSIBLE = "DISCOUNT_ACCESSIBLE";
+    private static final String TYPE_DISCOUNT_SUBSCRIPTION = "DISCOUNT_SUBSCRIPTION";
+
     private final FareProperties props;
     private final FareCalculator fareCalculator;
 
@@ -23,7 +28,7 @@ public class TransferFareService {
      * 여정(Journey) 단위로 최종 청구 결과를 만든다.
      */
     public List<JourneyCharge> settleJourneys(Long userId, List<RideContext> rides) {
-        if (rides == null || rides.isEmpty()) return List.of();
+        if (userId == null || rides == null || rides.isEmpty()) return List.of();
 
         // 1) 사용자/시간 기준 정렬 및 필터
         List<RideContext> sorted = rides.stream()
@@ -31,11 +36,13 @@ public class TransferFareService {
                 .sorted(Comparator.comparing(RideContext::startedAt))
                 .collect(Collectors.toList());
 
+        if (sorted.isEmpty()) return List.of();
+
         // 2) 환승 창구 기준 그룹핑
         List<List<RideContext>> groups = groupByTransferWindow(sorted);
 
         // 3) 각 그룹(여정)에 대해 금액 산출
-        List<JourneyCharge> result = new ArrayList<>();
+        List<JourneyCharge> result = new ArrayList<>(groups.size());
         for (List<RideContext> group : groups) {
             result.add(priceJourney(group));
         }
@@ -45,13 +52,17 @@ public class TransferFareService {
     /* ===== 내부 로직 ===== */
 
     private List<List<RideContext>> groupByTransferWindow(List<RideContext> rides) {
-        if (!props.getTransfer().isEnabled()) {
+        var tf = props.getTransfer();
+        if (tf == null || !tf.isEnabled()) {
             return rides.stream().map(List::of).collect(Collectors.toList());
         }
-        int window = props.getTransfer().getWindowMinutes();
+
+        final int window = Math.max(0, tf.getWindowMinutes()); // 음수 방지
+        final int maxTransfers = Math.max(0, tf.getMaxTransfers()); // 음수 방지
 
         List<List<RideContext>> groups = new ArrayList<>();
         List<RideContext> cur = new ArrayList<>();
+
         for (RideContext r : rides) {
             if (cur.isEmpty()) {
                 cur.add(r);
@@ -59,7 +70,14 @@ public class TransferFareService {
             }
             RideContext prev = cur.get(cur.size() - 1);
             long gapMin = Duration.between(prev.endedAt(), r.startedAt()).toMinutes();
-            if (gapMin <= window && gapMin >= 0 && cur.size() <= props.getTransfer().getMaxTransfers()+1) {
+
+            // 환승 가능 조건:
+            // - 시간 간격 0 이상 window 이내
+            // - 이미 누적된 환승 횟수(cur.size()-1)가 maxTransfers 미만
+            boolean withinWindow = gapMin >= 0 && gapMin <= window;
+            boolean transferSlotsLeft = (cur.size() - 1) < maxTransfers;
+
+            if (withinWindow && transferSlotsLeft) {
                 cur.add(r);
             } else {
                 groups.add(cur);
@@ -77,65 +95,80 @@ public class TransferFareService {
         var endedAt   = group.get(group.size()-1).endedAt();
         Long userId   = group.get(0).userId();
 
-        // 1) 각 탑승의 “기본 요금” 계산 (단일 탑승 계산기 재사용)
+        // 1) 각 탑승의 “기본 요금(BASE)” 계산 (단일 탑승 계산기 재사용)
         List<FareItem> items = new ArrayList<>();
-        BigDecimal baseSum = BigDecimal.ZERO;
+        // 각 탑승의 BASE 금액을 캐싱(추후 환승 보정 계산에 사용)
+        List<BigDecimal> basePerRide = new ArrayList<>(group.size());
 
         for (RideContext r : group) {
-            var b = fareCalculator.calculate(r);
-            // 단일 계산기 결과는 BASE(+할인)까지 포함되어 올 수 있으므로, 여기선 BASE만 취하고 할인은 여정 전체에서 처리하도록 조정
-            // 간단하게: BASE 항목만 추출
-            var baseOnly = b.items().stream()
-                    .filter(it -> "BASE".equals(it.type()))
+            var calc = fareCalculator.calculate(r);
+
+            // 단일 계산기 결과에서 BASE 항목만 추출 (해당 계산기가 할인 등을 포함해 오더라도
+            // 여정 단위에서 다시 보정하므로 여기서는 BASE만 취함)
+            BigDecimal baseOnly = calc.items().stream()
+                    .filter(it -> TYPE_BASE.equals(it.type()))
                     .findFirst()
                     .map(FareItem::amount)
                     .orElse(BigDecimal.ZERO);
 
+            basePerRide.add(nonNull(baseOnly));
+
             String desc = (r.mode() == TransportMode.BUS ? "버스" : "지하철") + " 기본요금";
-            items.add(new FareItem("BASE", desc, baseOnly));
-            baseSum = baseSum.add(baseOnly);
+            items.add(new FareItem(TYPE_BASE, desc, nonNull(baseOnly)));
         }
 
-        // 2) 환승 가격 정책 적용: 첫 탑승만 정상가, 이후는 정책에 따른 금액
-        if (props.getTransfer().isEnabled() && group.size() > 1) {
-            var pricing = props.getTransfer().getPricing();
+        // 2) 환승 가격 정책 적용: 첫 탑승은 BASE 그대로, 이후 탑승은 "원래 BASE → 환승가"로 보정
+        var tf = props.getTransfer();
+        if (tf != null && tf.isEnabled() && group.size() > 1 && tf.getPricing() != null) {
+            var pricing = tf.getPricing();
+
             for (int i = 1; i < group.size(); i++) {
                 RideContext r = group.get(i);
-                BigDecimal orig = (r.mode()==TransportMode.BUS)
-                        ? bd(props.getBusFare()) : bd(props.getSubwayFare());
 
+                // orig: i번째 탑승의 원래 BASE 금액 (계산 결과를 신뢰)
+                BigDecimal orig = basePerRide.get(i);
+
+                // 환승가 계산
                 BigDecimal transferFare = switch (pricing.getType()) {
                     case FREE -> BigDecimal.ZERO;
                     case FLAT -> bd(pricing.getFlatAmount());
                     case RATIO -> currencyRound(orig.multiply(bd(pricing.getRatio())));
                 };
 
-                // 원래 BASE 금액을 0으로 바꾸고, 별도의 TRANSFER 항목으로 반영
-                items.add(new FareItem("TRANSFER",
-                        "환승 (" + (r.mode()==TransportMode.BUS ? "버스" : "지하철") + ")", transferFare.subtract(orig)));
-                // 설명: BASE(+orig)를 넣어두고 TRANSFER에서 (-orig + transferFare)를 더해 최종 orig→transferFare 로 환산
+                // 보정 금액 = (환승가 - 원래 BASE)
+                // 이를 별도 TRANSFER 항목으로 넣어 전체 합계를 환승가로 맞춘다.
+                BigDecimal adjust = transferFare.subtract(orig);
+                items.add(new FareItem(
+                        TYPE_TRANSFER,
+                        "환승 (" + (r.mode()==TransportMode.BUS ? "버스" : "지하철") + ")",
+                        adjust
+                ));
             }
         }
 
-        // 여정 기준 할인(교통약자/구독)은 “여정 총액”에 대해 적용
-        BigDecimal subtotal = sum(items);        // BASE + (TRANSFER 보정)
-        BigDecimal surcharges = BigDecimal.ZERO; // 현재 없음
+        // 3) 여정 기준 할인(교통약자/구독)은 “여정 총액”에 대해 적용
+        BigDecimal subtotal = sum(items);        // BASE + TRANSFER 보정의 합
+        BigDecimal surcharges = BigDecimal.ZERO; // 현재 별도 할증 없음
         BigDecimal discounts = BigDecimal.ZERO;
 
         boolean accessible = group.stream().anyMatch(RideContext::accessibleUser);
         boolean subscribed = group.stream().anyMatch(RideContext::hasSubscription);
 
-        if (accessible && props.getDiscounts().getAccessibleUserRate() > 0) {
+        if (accessible && props.getDiscounts() != null && props.getDiscounts().getAccessibleUserRate() > 0) {
             BigDecimal d = subtotal.multiply(bd(props.getDiscounts().getAccessibleUserRate())).negate();
             d = currencyRound(d);
-            items.add(new FareItem("DISCOUNT_ACCESSIBLE", "교통약자 할인(여정)", d));
-            discounts = discounts.add(d);
+            if (d.signum() != 0) {
+                items.add(new FareItem(TYPE_DISCOUNT_ACCESSIBLE, "교통약자 할인(여정)", d));
+                discounts = discounts.add(d);
+            }
         }
-        if (subscribed && props.getDiscounts().getSubscriptionRate() > 0) {
+        if (subscribed && props.getDiscounts() != null && props.getDiscounts().getSubscriptionRate() > 0) {
             BigDecimal d = subtotal.multiply(bd(props.getDiscounts().getSubscriptionRate())).negate();
             d = currencyRound(d);
-            items.add(new FareItem("DISCOUNT_SUBSCRIPTION", "구독 할인(여정)", d));
-            discounts = discounts.add(d);
+            if (d.signum() != 0) {
+                items.add(new FareItem(TYPE_DISCOUNT_SUBSCRIPTION, "구독 할인(여정)", d));
+                discounts = discounts.add(d);
+            }
         }
 
         BigDecimal total = roundTo10Won(subtotal.add(surcharges).add(discounts));
@@ -162,9 +195,15 @@ public class TransferFareService {
 
     /* ===== helpers ===== */
 
+    private static BigDecimal nonNull(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /** 10원 단위 반올림 */
     private BigDecimal roundTo10Won(BigDecimal v) {
         return v.divide(bd(10), 0, RoundingMode.HALF_UP).multiply(bd(10));
     }
+    /** 통화 기본 반올림 (일원 단위) */
     private BigDecimal currencyRound(BigDecimal v) { return v.setScale(0, RoundingMode.HALF_UP); }
     private BigDecimal bd(double v) { return BigDecimal.valueOf(v); }
     private BigDecimal sum(List<FareItem> items) {

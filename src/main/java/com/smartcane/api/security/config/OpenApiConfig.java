@@ -51,9 +51,6 @@ public class OpenApiConfig {
                 ))
                 // ✅ 태그별 그룹
                 .tags(List.of(
-                        new Tag().name("Auth").description("회원가입/로그인/토큰 발급"),
-                        new Tag().name("Payment").description("결제수단/정산"),
-                        new Tag().name("Transit").description("승·하차, 노선/정류장 관리")
                 ));
     }
 }

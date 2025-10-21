@@ -30,7 +30,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
-	implementation 'org.springframework.boot:spring-boot-starter-webflux' // WebClient
+	implementation 'org.springframework.boot:spring-boot-starter-reactor-netty' // 선택
+//	implementation 'org.springframework.boot:spring-boot-starter-webflux' // WebClient
 
 	// --- DB ---
 	runtimeOnly 'com.mysql:mysql-connector-j'
@@ -40,7 +41,7 @@ dependencies {
 	implementation 'org.flywaydb:flyway-mysql'   // 👈 추가 (필수)
 
 	// --- OpenAPI(UI: /swagger-ui) ---
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
 
 	// --- Lombok ---
 

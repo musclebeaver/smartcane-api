@@ -1,9 +1,9 @@
 package com.smartcane.api.domain.billing.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
+import org.springframework.web.client.RestClient;
 
 import java.util.Map;
 
@@ -11,42 +11,42 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TossBillingClient {
 
-    private final WebClient tossWebClient;
+    private final RestClient tossRestClient;
+
+    private static final ParameterizedTypeReference<Map<String,Object>> MAP_TYPE =
+            new ParameterizedTypeReference<>() {};
 
     /** 빌링키 발급 */
     public Map<String, Object> issueBillingKey(String authKey, String customerKey) {
-        return tossWebClient.post()
+        return tossRestClient.post()
                 .uri("/v1/billing/authorizations/issue")
-                .bodyValue(Map.of(
-                        "authKey", authKey,
-                        "customerKey", customerKey
-                ))
+                .body(Map.of("authKey", authKey, "customerKey", customerKey))
                 .retrieve()
-                .bodyToMono(Map.class)
-                .onErrorResume(e -> Mono.error(new RuntimeException("Toss issueBillingKey error", e)))
-                .block();
+                .onStatus(s -> s.isError(), (req, res) ->
+                        new RuntimeException("Toss issueBillingKey HTTP " + res.getStatusCode()))
+                .body(MAP_TYPE);
     }
 
     /** 자동결제 */
     public Map<String, Object> requestPayment(String billingKey, Map<String, Object> body) {
-        return tossWebClient.post()
+        return tossRestClient.post()
                 .uri("/v1/billing/{billingKey}", billingKey)
-                .bodyValue(body)
+                .body(body)
                 .retrieve()
-                .bodyToMono(Map.class)
-                .onErrorResume(e -> Mono.error(new RuntimeException("Toss requestPayment error", e)))
-                .block();
+                .onStatus(s -> s.isError(), (req, res) ->
+                        new RuntimeException("Toss requestPayment HTTP " + res.getStatusCode()))
+                .body(MAP_TYPE);
     }
 
     /** 결제 취소 - Map 기반 */
     public Map<String, Object> cancelPayment(String paymentKey, Map<String, Object> body) {
-        return tossWebClient.post()
+        return tossRestClient.post()
                 .uri("/v1/payments/{paymentKey}/cancel", paymentKey)
-                .bodyValue(body)
+                .body(body)
                 .retrieve()
-                .bodyToMono(Map.class)
-                .onErrorResume(e -> Mono.error(new RuntimeException("Toss cancel error", e)))
-                .block();
+                .onStatus(s -> s.isError(), (req, res) ->
+                        new RuntimeException("Toss cancel HTTP " + res.getStatusCode()))
+                .body(MAP_TYPE);
     }
 
     /** 오버로드 - 단순 사유만 전달 */
