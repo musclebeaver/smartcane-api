@@ -7,10 +7,19 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASS}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true         # 기존 스키마가 있을 때 처음 한번만 유용
+    # schemas: smartcane              # 스키마를 명시적으로 쓰고 싶다면
+    # default-schema: smartcane
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update   # 개발: update / 운영: validate 권장
+      ddl-auto: validate   # 개발: update / 운영: validate 권장
+      naming:
+        implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+        physical-strategy: org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
     properties:
       hibernate:
         format_sql: true

@@ -7,13 +7,10 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(
-        name = "payment_ledger",
-        indexes = {
-                @Index(name="idx_pl_payment_key", columnList="paymentKey"),
-                @Index(name="idx_pl_order_id", columnList="orderId", unique = true) // 멱등 보장(정책에 따라 unique 해제 가능)
-        }
-)
+@Table(name="payment_ledger", indexes = {
+        @Index(name="idx_pl_payment_key", columnList="payment_key"),
+        @Index(name="idx_pl_order_id",    columnList="order_id", unique = true)
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class PaymentLedger {
 

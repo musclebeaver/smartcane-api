@@ -1,187 +1,107 @@
--- V1__init.sql
--- SmartCane: Identity & Device 스키마 초기화
--- MySQL 8.x / InnoDB / utf8mb4
+-- ===========================================
+-- Flyway V1 초기 스키마 (MySQL 8)
+-- ===========================================
 
--- 공통 설정(옵션)
-SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-SET FOREIGN_KEY_CHECKS = 0;
+-- (옵션) 로컬 편의: DB 생성/선택을 여기서 하지 않음 (운영 분리 권장)
+ CREATE DATABASE IF NOT EXISTS smartcane CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- USE smartcane;
 
--- =========================================================
--- users
--- role: USER / ADMIN
--- status: ACTIVE / SUSPENDED / DELETED
--- =========================================================
+-- 공통: 문자셋
+-- SET NAMES utf8mb4;
+
+-- =========================
+-- 1) 사용자(User) 도메인
+-- =========================
+
 CREATE TABLE IF NOT EXISTS users (
-  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  email             VARCHAR(190) NOT NULL,
-  nickname          VARCHAR(60),
-  role              VARCHAR(20) NOT NULL DEFAULT 'USER',
-  status            VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
-  created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (id),
-  UNIQUE KEY ux_users_email (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+  email         VARCHAR(255) NOT NULL,
+  nickname      VARCHAR(100) NULL,
+  birth_date    DATE         NULL,          -- 👈 추가
+  status        VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT ux_users_email UNIQUE (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================================================
--- user_auth
--- provider: LOCAL / APPLE / KAKAO / NAVER
--- refresh_token_hash: 보안상 해시로 저장
--- =========================================================
+-- 로그인 수단/연동(로컬 패스워드/카카오/네이버 등)
 CREATE TABLE IF NOT EXISTS user_auth (
-  id                   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id              BIGINT UNSIGNED NOT NULL,
-  provider             VARCHAR(16) NOT NULL DEFAULT 'LOCAL',
-  password_hash        VARCHAR(100),
-  refreshTokenHash     VARCHAR(128),
-  revokedAt            DATETIME(6),
-  created_at           TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at           TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (id),
-  KEY ix_userauth_user (user_id),
-  KEY ix_userauth_provider (provider),
-  KEY ix_userauth_refresh_hash (refreshTokenHash),
-  CONSTRAINT fk_userauth_user
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON UPDATE RESTRICT ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id            BIGINT       NOT NULL,
+  provider           VARCHAR(16)  NOT NULL,  -- LOCAL | APPLE | KAKAO | NAVER
+  provider_id        VARCHAR(100) NULL,      -- LOCAL일 땐 NULL
+  password_hash      VARCHAR(100) NULL,      -- LOCAL일 때만 사용
+  refresh_token_hash VARCHAR(128) NULL,      -- 리프레시 토큰 '해시' 저장
+  revoked_at         TIMESTAMP    NULL,
 
--- =========================================================
--- api_client
--- 외부/내부 시스템용 API Key (DB에는 해시만 저장)
--- scopes: JSON 배열(예: ["nav.read","media.write"])
--- =========================================================
+  -- Auditable (공통)
+  created_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  KEY ix_userauth_user          (user_id),
+  KEY ix_userauth_provider      (provider),
+  KEY ix_userauth_refresh_hash  (refresh_token_hash),
+
+  CONSTRAINT fk_user_auth_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- API 클라이언트(외부 앱/내부 서비스 식별용)
 CREATE TABLE IF NOT EXISTS api_client (
-  id                   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name                 VARCHAR(80) NOT NULL,
-  apiKeyHash           VARCHAR(128) NOT NULL,
-  scopes               JSON,
-  rateLimitPerMin      INT NOT NULL DEFAULT 60,
-  enabled              TINYINT(1) NOT NULL DEFAULT 1,
-  created_at           TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at           TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (id),
-  KEY ix_apiclient_keyhash (apiKeyHash),
+  id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
+  name               VARCHAR(80)   NOT NULL,
+  api_key_hash       VARCHAR(128)  NOT NULL,   -- API 키 '해시' 저장
+  scopes             JSON          NULL,       -- JSON 배열 문자열
+  rate_limit_per_min INT           NOT NULL DEFAULT 60,
+  enabled            TINYINT(1)    NOT NULL DEFAULT 1,
+
+  -- Auditable (공통)
+  created_at         TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  KEY ix_apiclient_keyhash (api_key_hash),
   KEY ix_apiclient_enabled (enabled)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- =========================================================
--- device
--- status: ACTIVE / INACTIVE / LOST
--- serial: 단말 시리얼(유니크)
--- =========================================================
-CREATE TABLE IF NOT EXISTS device (
-  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  serial            VARCHAR(64) NOT NULL,
-  model             VARCHAR(60),
-  firmware          VARCHAR(40),
-  status            VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
-  lastSeenAt        DATETIME(6),
-  created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (id),
-  UNIQUE KEY ux_device_serial (serial),
-  KEY ix_device_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  -- 필요하면 유니크 권장:
+  -- , CONSTRAINT ux_apiclient_keyhash UNIQUE (api_key_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================================================
--- device_binding
--- 사용자-단말 바인딩 이력(활성/해제)
--- =========================================================
-CREATE TABLE IF NOT EXISTS device_binding (
-  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id           BIGINT UNSIGNED NOT NULL,
-  device_id         BIGINT UNSIGNED NOT NULL,
-  boundAt           DATETIME(6),
-  active            TINYINT(1) NOT NULL DEFAULT 1,
-  created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (id),
-  KEY ix_binding_user (user_id),
-  KEY ix_binding_device (device_id),
-  KEY ix_binding_active (active),
-  CONSTRAINT fk_binding_user
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  CONSTRAINT fk_binding_device
-    FOREIGN KEY (device_id) REFERENCES device(id)
-    ON UPDATE RESTRICT ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- =========================
+-- 2) 포인트(Point) 도메인
+-- =========================
 
--- =========================================================
--- device_key
--- 단말 공개키(JWK) / KID 기반 롤테이션
--- =========================================================
-CREATE TABLE IF NOT EXISTS device_key (
-  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  device_id         BIGINT UNSIGNED NOT NULL,
-  kid               VARCHAR(64) NOT NULL,
-  publicJwk         JSON NOT NULL,
-  rotatedAt         DATETIME(6),
-  created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (id),
-  KEY ix_devicekey_device (device_id),
-  KEY ix_devicekey_kid (kid),
-  CONSTRAINT fk_devicekey_device
-    FOREIGN KEY (device_id) REFERENCES device(id)
-    ON UPDATE RESTRICT ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- 한 사용자 1계좌 가정 (여러 계좌가 필요하면 UNIQUE 제거하고 account_no 등 추가)
+CREATE TABLE IF NOT EXISTS point_accounts (
+  id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT      NOT NULL,
+  balance    BIGINT      NOT NULL DEFAULT 0,
 
--- =========================================================
--- offline_token
--- 오프라인 결제/승차 토큰 수명주기 (JTI 유니크)
--- status: VALID / REVOKED / USED
--- scope: JSON (예: {"type":"fare","limit":2500})
--- =========================================================
-CREATE TABLE IF NOT EXISTS offline_token (
-  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id           BIGINT UNSIGNED NULL,
-  device_id         BIGINT UNSIGNED NOT NULL,
-  jti               VARCHAR(64) NOT NULL,
-  issuedAt          DATETIME(6),
-  expiresAt         DATETIME(6),
-  status            VARCHAR(12) NOT NULL DEFAULT 'VALID',
-  audience          VARCHAR(64),
-  scope             JSON,
-  created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (id),
-  UNIQUE KEY ux_offtoken_jti (jti),
-  KEY ix_offtoken_device (device_id),
-  KEY ix_offtoken_expires (expiresAt),
-  CONSTRAINT fk_offtoken_user
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON UPDATE RESTRICT ON DELETE SET NULL,
-  CONSTRAINT fk_offtoken_device
-    FOREIGN KEY (device_id) REFERENCES device(id)
-    ON UPDATE RESTRICT ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  -- Auditable (프로젝트에서 사용하는 실 컬럼명에 맞추세요)
+  created_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
--- =========================================================
--- location_snapshot
--- 단말(또는 사용자)의 시점별 위치 로그
--- =========================================================
-CREATE TABLE IF NOT EXISTS location_snapshot (
-  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id           BIGINT UNSIGNED NULL,
-  device_id         BIGINT UNSIGNED NOT NULL,
-  lat               DECIMAL(9,6) NOT NULL,
-  lng               DECIMAL(9,6) NOT NULL,
-  accuracyM         DECIMAL(6,2),
-  capturedAt        DATETIME(6) NOT NULL,
-  created_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at        TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (id),
-  KEY ix_locsnap_device (device_id),
-  KEY ix_locsnap_capturedAt (capturedAt),
-  KEY ix_locsnap_latlng (lat, lng),
-  CONSTRAINT fk_locsnap_user
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON UPDATE RESTRICT ON DELETE SET NULL,
-  CONSTRAINT fk_locsnap_device
-    FOREIGN KEY (device_id) REFERENCES device(id)
-    ON UPDATE RESTRICT ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  CONSTRAINT ux_point_accounts_user UNIQUE (user_id),
+  CONSTRAINT fk_point_accounts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-SET FOREIGN_KEY_CHECKS = 1;
+-- (선택) 포인트 원장/이력까지 필요하면 후속 버전에서 point_ledger 추가 권장
+-- CREATE TABLE point_ledger (...);  -- V2__add_point_ledger.sql 로 분리 추천
+
+-- =========================
+-- 3) 멱등성(중복 방지)
+-- =========================
+CREATE TABLE IF NOT EXISTS idempotency (
+  id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+  key_hash      VARCHAR(128) NOT NULL,        -- 요청 키(예: userId:action:payload) 해시
+  status        VARCHAR(32)  NOT NULL,        -- STARTED | DONE | FAILED
+  response_body MEDIUMTEXT   NULL,
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT ux_idempotency_key UNIQUE (key_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================
+-- 4) 시드 데이터(필요 시)
+-- =========================
+-- INSERT INTO users(email, nickname) VALUES ('admin@local','admin') ON DUPLICATE KEY UPDATE email=email;
+-- INSERT INTO user_auth(user_id, provider, password_hash) SELECT id, 'local', '$2a$10$...' FROM users WHERE email='admin@local' ON DUPLICATE KEY UPDATE user_id=user_id;
+-- INSERT INTO point_account(user_id) SELECT id FROM users WHERE email='admin@local' ON DUPLICATE KEY UPDATE user_id=user_id;

@@ -10,9 +10,9 @@ import java.time.OffsetDateTime;
 @Table(
         name = "ride_log",
         indexes = {
-                @Index(name = "idx_ride_user_started", columnList = "userId,startedAt"),
-                @Index(name = "idx_ride_started", columnList = "startedAt"),
-                @Index(name = "idx_ride_device_started", columnList = "deviceId,startedAt")
+                @Index(name="idx_ride_user_started",   columnList="user_id,started_at"),
+                @Index(name="idx_ride_started",        columnList="started_at"),
+                @Index(name="idx_ride_device_started", columnList="device_id,started_at")
         }
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -43,7 +43,7 @@ public class RideLog {
     private OffsetDateTime endedAt;
 
     /** (옵션) 이동거리(m). 정액 요금 정책이라 0 가능 */
-    @Column
+    @Column(name = "distance_m")   // 👈 snake_case로 명시
     private Integer distanceM;
 
     /** (옵션) 노선/역 정보 — 운영 분석용 */

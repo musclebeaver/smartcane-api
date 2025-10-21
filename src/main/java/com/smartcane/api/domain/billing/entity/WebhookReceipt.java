@@ -7,14 +7,9 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(
-        name = "webhook_receipt",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_provider_transmission",
-                columnNames = {"provider", "transmissionId"}
-        ),
-        indexes = {
-                @Index(name = "idx_wr_received_at", columnList = "receivedAt")
-        }
+        name="webhook_receipt",
+        uniqueConstraints=@UniqueConstraint(name="uk_provider_transmission", columnNames={"provider","transmission_id"}),
+        indexes = { @Index(name="idx_wr_received_at", columnList="received_at") }
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class WebhookReceipt {

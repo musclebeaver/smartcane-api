@@ -8,10 +8,10 @@ import java.time.OffsetDateTime;
 
 //청구서
 @Entity
-@Table(name = "invoice", indexes = {
-        @Index(name="uk_invoice_order_id", columnList = "orderId", unique = true),
-        @Index(name="idx_invoice_user", columnList = "userId"),
-        @Index(name="idx_invoice_status", columnList = "status")
+@Table(name="invoice", indexes = {
+        @Index(name="uk_invoice_order_id", columnList="order_id", unique = true),
+        @Index(name="idx_invoice_user",    columnList="user_id"),
+        @Index(name="idx_invoice_status",  columnList="status")
 })
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Invoice {

@@ -6,9 +6,9 @@ import lombok.*;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "billing_profile", indexes = {
-        @Index(name = "idx_billing_user", columnList = "userId"),
-        @Index(name = "idx_billing_customerKey", columnList = "customerKey", unique = true)
+@Table(name="billing_profile", indexes = {
+        @Index(name="idx_billing_user",         columnList="user_id"),
+        @Index(name="idx_billing_customer_key", columnList="customer_key", unique = true)
 })
 @Getter @Setter @Builder
 @NoArgsConstructor @AllArgsConstructor

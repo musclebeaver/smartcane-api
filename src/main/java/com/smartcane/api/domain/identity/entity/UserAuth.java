@@ -8,12 +8,11 @@ import lombok.Setter;
 import java.time.Instant;
 //“인증 수단” 보관. 로컬 비밀번호 해시, 소셜(애플/카카오) 계정 연결, 리프레시 토큰 해시.
 @Entity
-@Table(name = "user_auth",
-        indexes = {
-                @Index(name = "ix_userauth_user", columnList = "user_id"),
-                @Index(name = "ix_userauth_provider", columnList = "provider"),
-                @Index(name = "ix_userauth_refresh_hash", columnList = "refreshTokenHash")
-        })
+@Table(name="user_auth", indexes = {
+        @Index(name="ix_userauth_user",         columnList="user_id"),
+        @Index(name="ix_userauth_provider",     columnList="provider"),
+        @Index(name="ix_userauth_refresh_hash", columnList="refresh_token_hash")
+})
 @Getter @Setter
 public class UserAuth extends Auditable {
 

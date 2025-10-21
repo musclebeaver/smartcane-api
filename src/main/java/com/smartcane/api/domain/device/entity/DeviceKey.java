@@ -25,10 +25,12 @@ public class DeviceKey {
     private String kid;
 
     // ⚠️ 데모: 평문 저장. 운영: 반드시 KMS/암호화(AES-GCM 등)로 보호!
-    @Lob @Column(name = "jwk_private_json", nullable = false)
+    @Lob
+    @Column(name = "jwk_private_json", nullable = false, columnDefinition = "LONGTEXT")
     private String jwkPrivateJson;
 
-    @Lob @Column(name = "jwk_public_json", nullable = false)
+    @Lob
+    @Column(name = "jwk_public_json",  nullable = false, columnDefinition = "LONGTEXT")
     private String jwkPublicJson;
 
     @Column(name = "algorithm", nullable = false, length = 16) // ED25519 / ES256

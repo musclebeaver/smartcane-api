@@ -35,6 +35,10 @@ dependencies {
 	// --- DB ---
 	runtimeOnly 'com.mysql:mysql-connector-j'
 
+	// DB 마이그레이션
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-mysql'   // 👈 추가 (필수)
+
 	// --- OpenAPI(UI: /swagger-ui) ---
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 

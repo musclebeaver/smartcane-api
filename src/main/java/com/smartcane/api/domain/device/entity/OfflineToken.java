@@ -21,8 +21,9 @@ public class OfflineToken {
     @Column(name = "device_id", nullable = false)
     private UUID deviceId;
 
-    @Lob @Column(name = "token", nullable = false)
-    private String token; // JWS compact
+    @Lob
+    @Column(name = "token", nullable = false, columnDefinition = "TEXT")
+    private String token;
 
     @Column(name = "scope", length = 64)
     private String scope;

@@ -8,11 +8,10 @@ import lombok.Setter;
 
 //서버 간 연동/운영도구/파트너용 API 키 발급·권한 스코프 관리.
 @Entity
-@Table(name = "api_client",
-        indexes = {
-                @Index(name = "ix_apiclient_keyhash", columnList = "apiKeyHash"),
-                @Index(name = "ix_apiclient_enabled", columnList = "enabled")
-        })
+@Table(name="api_client", indexes = {
+        @Index(name="ix_apiclient_keyhash", columnList="api_key_hash"),
+        @Index(name="ix_apiclient_enabled", columnList="enabled")
+})
 @Getter @Setter
 public class ApiClient extends Auditable {
 
