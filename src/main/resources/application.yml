@@ -17,9 +17,6 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate   # 개발: update / 운영: validate 권장
-      naming:
-        implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
-        physical-strategy: org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
     properties:
       hibernate:
         format_sql: true
@@ -95,6 +92,13 @@ smartcane:
 
 billing:
   api-base-url: https://api.tosspayments.com
-  secret-key: ${TOSS_SECRET_KEY}
+  secret-key: sk_test_xxx123456789
   webhook:
-    secret: ${TOSS_WEBHOOK_SECRET}
+    secret: whsec_test_yyy987654321
+
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui
+  api-docs:
+    path: /v3/api-docs

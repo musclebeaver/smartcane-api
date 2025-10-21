@@ -108,4 +108,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = header.substring(7).trim();
         return token.isEmpty() ? null : token;
     }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        // 🔒 필터 제외(화이트리스트)
+        return uri.startsWith("/v3/api-docs")
+                || uri.startsWith("/swagger-ui")
+                || uri.equals("/swagger-ui.html")
+                || uri.equals("/actuator/health")
+                || uri.equals("/api/healthz")
+                || uri.startsWith("/api/auth/")
+                || uri.startsWith("/oauth2/")
+                || uri.startsWith("/login/oauth2/");
+    }
 }
