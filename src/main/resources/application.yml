@@ -65,7 +65,7 @@ smartcane:
   jwt:
     issuer: smartcane-api
     # 운영 환경에서는 Base64 인코딩된 키를 환경변수로 주입하는 게 안전합니다.
-    secret: ${JWT_SECRET:change-me-super-secret-32bytes-min}
+    secret: ${JWT_SECRET}
     access-exp-seconds: 900        # Access Token 만료: 15분
     refresh-exp-seconds: 2592000   # Refresh Token 만료: 30일
     clock-skew-seconds: 60         # 허용 시간 오차(초)
