@@ -3,6 +3,7 @@ package com.smartcane.api.domain.point.service;
 import com.smartcane.api.domain.identity.entity.User;
 import com.smartcane.api.domain.point.entity.PointAccount;
 import com.smartcane.api.domain.point.exception.PointAccountNotFoundException;
+import com.smartcane.api.domain.point.exception.PointInsufficientBalanceException;
 import com.smartcane.api.domain.point.repository.PointAccountRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -95,6 +96,47 @@ class PointPaymentServiceTest {
             assertThatThrownBy(() -> pointPaymentService.chargePoint(5L, -100L))
                     .isInstanceOf(IllegalArgumentException.class);
             verifyNoInteractions(pointAccountRepository);
+        }
+    }
+
+    @Nested
+    class PayWithPoint {
+
+        @Test
+        @DisplayName("결제 금액만큼 지갑 잔액을 차감한다")
+        void deductBalance() {
+            User user = newUser(6L);
+            PointAccount account = new PointAccount(user);
+            account.accumulate(5_000L);  // 테스트 가독성을 위해 미리 충전해 둡니다.
+
+            when(pointAccountRepository.findByUserId(user.getId())).thenReturn(Optional.of(account));
+
+            long balance = pointPaymentService.payWithPoint(user.getId(), 2_000L);
+
+            assertThat(balance).isEqualTo(3_000L);
+            assertThat(account.getBalance()).isEqualTo(3_000L);
+        }
+
+        @Test
+        @DisplayName("잔액이 부족하면 전용 예외를 던진다")
+        void insufficientBalanceThrows() {
+            User user = newUser(7L);
+            PointAccount account = new PointAccount(user);
+            account.accumulate(1_000L);
+
+            when(pointAccountRepository.findByUserId(user.getId())).thenReturn(Optional.of(account));
+
+            assertThatThrownBy(() -> pointPaymentService.payWithPoint(user.getId(), 2_000L))
+                    .isInstanceOf(PointInsufficientBalanceException.class);
+        }
+
+        @Test
+        @DisplayName("결제 대상 지갑이 없으면 예외를 던진다")
+        void missingAccountThrows() {
+            when(pointAccountRepository.findByUserId(8L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> pointPaymentService.payWithPoint(8L, 1_000L))
+                    .isInstanceOf(PointAccountNotFoundException.class);
         }
     }
 }

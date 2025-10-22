@@ -2,6 +2,7 @@ package com.smartcane.api.domain.point.controller;
 
 import com.smartcane.api.domain.point.dto.PointBalanceResponse;
 import com.smartcane.api.domain.point.dto.PointChargeRequest;
+import com.smartcane.api.domain.point.dto.PointPaymentRequest;
 import com.smartcane.api.domain.point.service.PointPaymentService;
 import com.smartcane.api.security.util.AuthUtil;
 import jakarta.validation.Valid;
@@ -37,6 +38,15 @@ public class PointController {
         Long userId = AuthUtil.currentUserId();
         long balance = pointPaymentService.chargePoint(userId, request.amount());
         // 충전 이후 갱신된 잔액을 바로 응답하여 포인트 탭에 표시할 수 있게 합니다.
+        return new PointBalanceResponse(balance);
+    }
+
+    @PostMapping("/pay")
+    public PointBalanceResponse payWithPoint(@Valid @RequestBody PointPaymentRequest request) {
+        // 클라이언트가 결제하고자 하는 금액만 전달하면 서버에서 잔액 차감까지 처리합니다.
+        Long userId = AuthUtil.currentUserId();
+        long balance = pointPaymentService.payWithPoint(userId, request.amount());
+        // 결제 후 남은 잔액을 즉시 반환해 프론트엔드에서 후속 처리를 쉽게 합니다.
         return new PointBalanceResponse(balance);
     }
 }
