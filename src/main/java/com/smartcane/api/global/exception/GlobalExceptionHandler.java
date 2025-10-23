@@ -16,6 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
@@ -114,6 +115,34 @@ public class GlobalExceptionHandler {
 
         ErrorResponse body = ErrorResponse.of(req, HttpStatus.BAD_REQUEST,
                 "BINDING_ERROR", "요청 바인딩 실패", details);
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    // ============ 400: PathVariable/RequestParam 타입 변환 실패 (ex. UUID 파싱 오류) ============
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                            HttpServletRequest req) {
+        // 어떤 파라미터가 어떤 값으로 전달되었는지 응답에 포함하여 클라이언트가 원인 파악을 쉽게 하도록 함.
+        String field = ex.getName();
+        Object rejected = ex.getValue();
+        String expectedType = Optional.ofNullable(ex.getRequiredType())
+                .map(Class::getSimpleName)
+                .orElse("요구되는 형식");
+
+        ErrorDetail detail = new ErrorDetail(
+                field,
+                String.format("%s(으)로 해석할 수 없는 값입니다", expectedType),
+                rejected
+        );
+
+        ErrorResponse body = ErrorResponse.of(
+                req,
+                HttpStatus.BAD_REQUEST,
+                "TYPE_MISMATCH",
+                String.format("요청 파라미터 '%s'가 올바른 %s 형식이 아닙니다.", field, expectedType),
+                List.of(detail)
+        );
+
         return ResponseEntity.badRequest().body(body);
     }
 
