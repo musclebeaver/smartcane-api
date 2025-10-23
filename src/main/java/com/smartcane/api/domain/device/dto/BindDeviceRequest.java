@@ -2,8 +2,6 @@ package com.smartcane.api.domain.device.dto;
 
 import jakarta.validation.constraints.NotNull;
 
-import java.util.UUID;
-
 public record BindDeviceRequest(
-        @NotNull UUID userId
+        @NotNull Long userId   // UUID 대신 내부 Long ID 사용
 ) {}

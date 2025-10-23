@@ -39,7 +39,7 @@ public class DeviceBindingController {
 
     // 사용자 기준 바인딩 목록 조회 (active 필터 가능: true/false/null)
     @GetMapping("/api/users/{userId}/device-bindings")
-    public List<DeviceBindingResponse> listByUser(@PathVariable UUID userId,
+    public List<DeviceBindingResponse> listByUser(@PathVariable Long userId,
                                                   @RequestParam(required = false) Boolean active) {
         return bindingService.getBindingsByUser(userId, active);
     }

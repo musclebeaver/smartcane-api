@@ -11,9 +11,9 @@ public interface DeviceBindingRepository extends JpaRepository<DeviceBinding, UU
 
     Optional<DeviceBinding> findByDeviceIdAndActive(UUID deviceId, boolean active);
 
-    Optional<DeviceBinding> findByDeviceIdAndUserIdAndActive(UUID deviceId, UUID userId, boolean active);
+    Optional<DeviceBinding> findByDeviceIdAndUserIdAndActive(UUID deviceId, Long userId, boolean active);
 
-    List<DeviceBinding> findByUserIdAndActive(UUID userId, boolean active);
+    List<DeviceBinding> findByUserIdAndActive(Long userId, boolean active);
 
-    List<DeviceBinding> findByUserIdOrderByBoundAtDesc(UUID userId);
+    List<DeviceBinding> findByUserIdOrderByBoundAtDesc(Long userId);
 }
