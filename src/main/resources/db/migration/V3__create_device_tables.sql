@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS device (
 CREATE TABLE IF NOT EXISTS device_binding (
   id         BINARY(16)   NOT NULL PRIMARY KEY,
   device_id  BINARY(16)   NOT NULL,
-  user_id    BINARY(16)   NOT NULL,
+  user_id    BIGINT       NOT NULL,                      -- 내부 회원 PK(Long) 그대로 저장
   active     TINYINT(1)   NOT NULL,                      -- boolean
   bound_at   TIMESTAMP    NOT NULL,
   unbound_at TIMESTAMP    NULL,
