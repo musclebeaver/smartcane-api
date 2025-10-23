@@ -22,7 +22,7 @@ public class DeviceBinding {
     private UUID deviceId;
 
     @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    private Long userId;          // 내부 회원 PK(Long) 기반으로 저장하도록 수정
 
     @Column(name = "active", nullable = false)
     private boolean active;  // true=현재 바인딩, false=해지됨
