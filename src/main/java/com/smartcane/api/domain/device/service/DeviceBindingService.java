@@ -100,7 +100,7 @@ public class DeviceBindingService {
      * 사용자 기준 바인딩 목록(필터: active)
      */
     @Transactional
-    public List<DeviceBindingResponse> getBindingsByUser(UUID userId, Boolean active) {
+    public List<DeviceBindingResponse> getBindingsByUser(Long userId, Boolean active) {
         List<DeviceBinding> list = (active == null)
                 ? bindingRepository.findByUserIdOrderByBoundAtDesc(userId)
                 : bindingRepository.findByUserIdAndActive(userId, active);
