@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS device_key (
 CREATE TABLE IF NOT EXISTS offline_token (
   id         BINARY(16)   NOT NULL PRIMARY KEY,
   device_id  BINARY(16)   NOT NULL,
-  token      LONGTEXT     NOT NULL,                       -- @Lob (JWS compact)
+  token      TEXT     NOT NULL,                       -- @Lob (JWS compact)
   scope      VARCHAR(64)  NULL,
   issued_at  TIMESTAMP    NOT NULL,
   expires_at TIMESTAMP    NOT NULL,

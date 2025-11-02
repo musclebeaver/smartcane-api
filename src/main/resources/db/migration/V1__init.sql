@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   email         VARCHAR(255) NOT NULL,
   nickname      VARCHAR(100) NULL,
   birth_date    DATE         NULL,          -- 👈 추가
+  role          VARCHAR(16)  NOT NULL DEFAULT 'USER',
   status        VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
   created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
